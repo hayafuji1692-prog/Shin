@@ -32,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav className="nav">
             <Link href="/">ダッシュボード</Link>
             <Link href="/transactions">取引一覧</Link>
+            <Link href="/rules">ルール管理</Link>
           </nav>
         </header>
         <main className="container">{children}</main>

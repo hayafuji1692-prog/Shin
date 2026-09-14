@@ -1,5 +1,5 @@
 import { supabase } from "./supabase/client";
-import type { Category, MonthlyCategoryTotal, Transaction } from "./types";
+import type { Category, CategoryRule, MonthlyCategoryTotal, Transaction } from "./types";
 import { monthsBeforeJst } from "./date";
 
 export async function getCategories(): Promise<Category[]> {
@@ -44,6 +44,15 @@ export async function getMonthlyTrend(currentMonth: string, monthsBack: number):
     result.push({ month, total: totalsByMonth.get(month) ?? 0 });
   }
   return result;
+}
+
+export async function getCategoryRules(): Promise<CategoryRule[]> {
+  const { data, error } = await supabase
+    .from("category_rules")
+    .select("id, keyword, category_id, priority")
+    .order("keyword", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
 }
 
 export type TransactionFilter = {
