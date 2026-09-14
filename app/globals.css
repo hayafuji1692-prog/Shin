@@ -198,3 +198,53 @@ a {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+.skeleton {
+  background: linear-gradient(90deg, var(--border) 25%, #f0f0ee 37%, var(--border) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: 6px;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.skeleton-select {
+  flex: 1;
+  min-width: 120px;
+  height: 38px;
+  border-radius: 8px;
+}
+
+.skeleton-label {
+  width: 40%;
+  height: 12px;
+  margin-bottom: 8px;
+}
+
+.skeleton-value {
+  width: 55%;
+  height: 26px;
+}
+
+.skeleton-line {
+  width: 55%;
+  height: 14px;
+  margin-bottom: 8px;
+}
+
+.skeleton-line-short {
+  width: 30%;
+  height: 11px;
+}
+
+.skeleton-amount {
+  width: 60px;
+  height: 16px;
+}
