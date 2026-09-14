@@ -56,6 +56,18 @@ create table budgets (
   unique (category_id, month)
 );
 
+-- ── recurring_transactions ──────────────────────────────
+-- カード決済されない定期支出（銀行振替の積立投資など）。取り込みジョブが
+-- 毎月day_of_month以降に1回だけ、対応するtransactionsの行を自動生成する。
+create table recurring_transactions (
+  id            uuid primary key default gen_random_uuid(),
+  label         text not null,             -- '株式積立' など表示名
+  amount        numeric(12, 2) not null,
+  category_id   uuid references categories(id),
+  day_of_month  int not null check (day_of_month between 1 and 28),
+  created_at    timestamptz not null default now()
+);
+
 -- ── 初期カテゴリ ─────────────────────────────────────────
 insert into categories (name, sort_order) values
   ('食費', 1),
@@ -67,6 +79,7 @@ insert into categories (name, sort_order) values
   ('通信費', 7),
   ('娯楽', 8),
   ('医療', 9),
+  ('投資', 10),
   ('未分類', 999);
 
 -- ── サンプルの分類ルール（あとから自由に追加・編集してください）──
@@ -138,15 +151,17 @@ alter table categories enable row level security;
 alter table category_rules enable row level security;
 alter table transactions enable row level security;
 alter table budgets enable row level security;
+alter table recurring_transactions enable row level security;
 
 -- anon(フロントエンド)キーは読み取り専用。insert/update/delete用のポリシーは作らないため、
 -- anonキーからの書き込みは自動的に拒否される。
 -- GitHub Actionsの取り込みジョブはRLSを無視できるservice role keyを使う。
-create policy "anon can read cards"          on cards          for select using (true);
-create policy "anon can read categories"     on categories     for select using (true);
-create policy "anon can read category_rules" on category_rules for select using (true);
-create policy "anon can read transactions"   on transactions   for select using (true);
-create policy "anon can read budgets"        on budgets        for select using (true);
+create policy "anon can read cards"                 on cards                  for select using (true);
+create policy "anon can read categories"            on categories             for select using (true);
+create policy "anon can read category_rules"        on category_rules         for select using (true);
+create policy "anon can read transactions"          on transactions           for select using (true);
+create policy "anon can read budgets"               on budgets                for select using (true);
+create policy "anon can read recurring_transactions" on recurring_transactions for select using (true);
 
 -- ── テーブルレベルの権限付与 ────────────────────────────
 -- RLSポリシーだけでは不十分で、Postgresのテーブル権限自体もanon/service_roleに

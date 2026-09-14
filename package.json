@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "ingest": "tsx ingest/fetch-vpass-emails.ts",
+    "apply-recurring": "tsx ingest/apply-recurring.ts",
     "mint-token": "tsx scripts/mint-gmail-refresh-token.ts"
   },
   "dependencies": {
