@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { formatYen } from "@/lib/date";
 
 export type CategorySlice = {
+  id: string | null;
   name: string;
   value: number;
 };
@@ -20,7 +22,9 @@ export const CATEGORY_COLORS = [
   "#9a9a9a",
 ];
 
-export function CategoryPieChart({ data }: { data: CategorySlice[] }) {
+export function CategoryPieChart({ data, month }: { data: CategorySlice[]; month: string }) {
+  const router = useRouter();
+
   if (data.length === 0) {
     return <p className="empty-state">この月の取引データがありません</p>;
   }
@@ -38,6 +42,11 @@ export function CategoryPieChart({ data }: { data: CategorySlice[] }) {
           // react-smoothのアニメーションが一部環境でrequestAnimationFrameと噛み合わず
           // セクターが一切描画されないことがあるため無効化している
           isAnimationActive={false}
+          cursor="pointer"
+          onClick={(entry: { payload?: CategorySlice }) => {
+            const id = entry.payload?.id;
+            if (id) router.push(`/transactions?month=${month}&category=${id}`);
+          }}
         >
           {data.map((entry, index) => (
             <Cell key={entry.name} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />

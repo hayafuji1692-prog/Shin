@@ -22,6 +22,7 @@ export default async function DashboardPage() {
 
   const pieData = monthlyTotals
     .map((row) => ({
+      id: row.category_id,
       name: row.category_id ? categoryNameById.get(row.category_id) ?? "未分類" : "未分類",
       value: Number(row.total),
     }))
@@ -47,15 +48,27 @@ export default async function DashboardPage() {
 
       <div className="card">
         <h2 className="section-title">カテゴリ別内訳</h2>
-        <CategoryPieChart data={pieData} />
+        <CategoryPieChart data={pieData} month={currentMonth} />
         {pieData.length > 0 && (
           <ul className="transaction-list">
-            {pieData.map((slice) => (
-              <li key={slice.name} className="transaction-item">
-                <span className="transaction-merchant">{slice.name}</span>
-                <span className="transaction-amount">{formatYen(slice.value)}</span>
-              </li>
-            ))}
+            {pieData.map((slice) =>
+              slice.id ? (
+                <li key={slice.name} className="transaction-item">
+                  <Link
+                    href={`/transactions?month=${currentMonth}&category=${slice.id}`}
+                    className="category-link"
+                  >
+                    <span className="transaction-merchant">{slice.name}</span>
+                    <span className="transaction-amount">{formatYen(slice.value)}</span>
+                  </Link>
+                </li>
+              ) : (
+                <li key={slice.name} className="transaction-item">
+                  <span className="transaction-merchant">{slice.name}</span>
+                  <span className="transaction-amount">{formatYen(slice.value)}</span>
+                </li>
+              )
+            )}
           </ul>
         )}
       </div>
