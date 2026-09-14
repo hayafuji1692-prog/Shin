@@ -111,3 +111,10 @@ create policy "anon can read categories"     on categories     for select using 
 create policy "anon can read category_rules" on category_rules for select using (true);
 create policy "anon can read transactions"   on transactions   for select using (true);
 create policy "anon can read budgets"        on budgets        for select using (true);
+
+-- ── テーブルレベルの権限付与 ────────────────────────────
+-- RLSポリシーだけでは不十分で、Postgresのテーブル権限自体もanon/service_roleに
+-- 付与されている必要がある。
+grant usage on schema public to anon, service_role;
+grant select on all tables in schema public to anon;
+grant select, insert, update, delete on all tables in schema public to service_role;
