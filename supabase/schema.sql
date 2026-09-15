@@ -82,8 +82,9 @@ insert into categories (name, sort_order) values
 insert into category_rules (keyword, category_id, priority)
 select keyword, categories.id, priority
 from (values
-  ('セブン-イレブン', 'コンビニ', 1),
-  ('セブンイレブン', 'コンビニ', 1),
+  -- 実メールでは「セブン－イレブン」の中点が全角ダッシュ等で表記ゆれするため、
+  -- ダッシュを含まない「セブン」だけで拾う
+  ('セブン', 'コンビニ', 1),
   ('ファミリーマート', 'コンビニ', 1),
   ('ローソン', 'コンビニ', 1),
   ('スターバックス', 'スーパー', 1),
