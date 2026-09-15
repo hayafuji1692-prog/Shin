@@ -12,6 +12,9 @@ export type EmbeddedEmailAttachment = {
 
 export type GmailMessage = {
   id: string;
+  /** メール自体が持つMessage-IDヘッダー。転送・添付されても値が変わらないため、
+   *  直接届いたメールと.eml添付経由のメールを同じ取引として重複排除できる */
+  messageId: string;
   from: string;
   bodyText: string;
   /** 転送メールに.emlとして添付された、別のメール本体（message/rfc822パート） */
@@ -155,8 +158,10 @@ export async function getMessage(accessToken: string, messageId: string): Promis
   const from = findHeader(data.payload?.headers, "From");
   const bodyText = extractPlainTextBody(data.payload);
   const embeddedEmailAttachments = findEmbeddedEmailAttachments(data.payload);
+  // 大半のメールにMessage-IDヘッダーがあるはずだが、万が一無ければGmailのIDで代用する
+  const emailMessageId = findHeader(data.payload?.headers, "Message-ID") || data.id;
 
-  return { id: data.id, from, bodyText, embeddedEmailAttachments };
+  return { id: data.id, messageId: emailMessageId, from, bodyText, embeddedEmailAttachments };
 }
 
 /** message/rfc822として添付された、転送メール内の別メールの生データ(.eml形式)を取得する */

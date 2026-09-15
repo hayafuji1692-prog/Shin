@@ -60,11 +60,11 @@ async function insertTransaction(
 async function main() {
   const supabase = createAdminClient();
 
-  console.log("[1/5] Gmailアクセストークンを取得中...");
+  console.log("[1/4] Gmailアクセストークンを取得中...");
   const accessToken = await getAccessToken();
 
   const query = buildFullQuery(SEARCH_WINDOW_DAYS);
-  console.log(`[2/5] Gmailメッセージを検索中... query="${query}"`);
+  console.log(`[2/4] Gmailメッセージを検索中... query="${query}"`);
   const messageIds = await listMessageIds(accessToken, query);
   console.log(`  → ${messageIds.length}件のメッセージが見つかりました`);
 
@@ -73,25 +73,10 @@ async function main() {
     return;
   }
 
-  console.log("[3/5] 既存の取引と突き合わせ中...");
-  const { data: existing, error: existingError } = await supabase
-    .from("transactions")
-    .select("gmail_message_id")
-    .in("gmail_message_id", messageIds);
-  if (existingError) throw existingError;
-  const existingIds = new Set((existing ?? []).map((row) => row.gmail_message_id as string));
-
-  // 添付メール(.eml)を含む可能性があるメッセージ本体は、まだ処理済みでなくても
-  // 毎回中身を開いて確認する必要があるため、ここではトップレベルのIDだけで絞り込む
-  const newMessageIds = messageIds.filter((id) => !existingIds.has(id));
-  console.log(`  → 新規メッセージ: ${newMessageIds.length}件`);
-
-  if (newMessageIds.length === 0) {
-    console.log("新規の取引はありませんでした。終了します。");
-    return;
-  }
-
-  console.log("[4/5] 分類ルールを取得中...");
+  // 事前の重複チェックはしない。取り込み対象のIDが「メール自体のMessage-ID」であり
+  // Gmail検索結果のトップレベルIDと一致するとは限らない（.eml添付経由の場合は特に）ため、
+  // 実際に中身を開いて解析した後、insert時のunique制約で重複を弾く方が確実。
+  console.log("[3/4] 分類ルールを取得中...");
   const { data: rules, error: rulesError } = await supabase
     .from("category_rules")
     .select("id, keyword, category_id, priority");
@@ -106,19 +91,20 @@ async function main() {
   if (uncategorizedError) throw uncategorizedError;
   const uncategorizedId: string | null = uncategorized?.id ?? null;
 
-  console.log("[5/5] メールを解析してSupabaseへ登録中...");
+  console.log("[4/4] メールを解析してSupabaseへ登録中...");
   let inserted = 0;
   let skipped = 0;
 
-  for (const messageId of newMessageIds) {
+  for (const messageId of messageIds) {
     const message = await getMessage(accessToken, messageId);
 
-    // 直接届いたVpass通知メール
+    // 直接届いたVpass通知メール。メール自体のMessage-IDで重複判定するため、
+    // 同じメールが.eml添付として転送されてきても二重登録されない。
     const directParser = findParserForSender(message.from);
     if (directParser) {
       const result = await insertTransaction(
         supabase,
-        messageId,
+        message.messageId,
         directParser,
         message.bodyText,
         categoryRules,
