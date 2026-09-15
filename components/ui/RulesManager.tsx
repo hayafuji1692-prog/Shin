@@ -179,7 +179,7 @@ export function RulesManager({
         <textarea
           className="admin-textarea"
           rows={5}
-          placeholder={"マクドナルド,外食\nすき家,外食"}
+          placeholder={"イオン,スーパー\nセブン-イレブン,コンビニ"}
           value={bulkText}
           onChange={(e) => setBulkText(e.target.value)}
         />
