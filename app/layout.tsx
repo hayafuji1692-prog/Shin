@@ -20,6 +20,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#2f6f4f",
+  // このアプリはライトテーマのみのため、端末がダークモードでも読み込み中に
+  // 背景が黒く一瞬光るのを防ぐ
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

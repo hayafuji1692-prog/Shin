@@ -10,7 +10,9 @@ import {
   getTransactions,
 } from "@/lib/queries";
 
-export const revalidate = 0;
+// メール取り込みは1時間毎なので、30秒キャッシュしても実質的なズレは出ない。
+// 代わりに再訪問時の待ち時間を大きく減らせる。
+export const revalidate = 30;
 
 const RECENT_TRANSACTIONS_LIMIT = 5;
 
