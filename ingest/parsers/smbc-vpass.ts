@@ -10,10 +10,12 @@ import type { EmailParser, ParsedTransaction } from "./types";
 //   ◇利用金額：440円
 //
 // 全角/半角どちらのコロンも許容し、金額の桁区切りカンマも許容する。
+// 海外決済（Kiwi.comなど）では「62,586.00JPY」のように小数点＋JPY表記になることがある。
 const CARD_RE = /ご利用カード[:：]\s*(.+)/;
 const DATE_RE = /◇利用日[:：]\s*(\d{4})\/(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})/;
 const MERCHANT_RE = /◇利用先[:：]\s*(.+)/;
-const AMOUNT_RE = /◇利用金額[:：]\s*([\d,]+)\s*円/;
+const TRANSACTION_TYPE_RE = /◇利用取引[:：]\s*(.+)/;
+const AMOUNT_RE = /◇利用金額[:：]\s*([\d,]+)(?:\.\d+)?\s*(?:円|JPY)/i;
 
 export const smbcVpassParser: EmailParser = {
   issuer: "smbc",
@@ -28,8 +30,14 @@ export const smbcVpassParser: EmailParser = {
     const merchantMatch = bodyText.match(MERCHANT_RE);
     const amountMatch = bodyText.match(AMOUNT_RE);
     const cardMatch = bodyText.match(CARD_RE);
+    const transactionTypeMatch = bodyText.match(TRANSACTION_TYPE_RE);
 
     if (!dateMatch || !merchantMatch || !amountMatch) {
+      return null;
+    }
+
+    // 「取消」（オーソリのキャンセル）は支出ではないため取り込まない
+    if (transactionTypeMatch?.[1]?.trim() === "取消") {
       return null;
     }
 

@@ -31,8 +31,7 @@ async function insertTransaction(
 ): Promise<"inserted" | "skipped"> {
   const parsed = parser.parse(bodyText);
   if (!parsed) {
-    console.warn(`  ! 本文の解析に失敗: id=${gmailMessageId}`);
-    console.warn(`  DEBUG body:\n${bodyText.slice(0, 800)}`);
+    console.warn(`  ! 本文の解析に失敗、または対象外（取消など）: id=${gmailMessageId}`);
     return "skipped";
   }
 
