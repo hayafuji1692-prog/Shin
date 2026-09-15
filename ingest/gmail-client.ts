@@ -5,17 +5,25 @@ export type GmailMessageSummary = {
   id: string;
 };
 
+export type EmbeddedEmailAttachment = {
+  attachmentId: string;
+  filename: string;
+};
+
 export type GmailMessage = {
   id: string;
   from: string;
   bodyText: string;
+  /** 転送メールに.emlとして添付された、別のメール本体（message/rfc822パート） */
+  embeddedEmailAttachments: EmbeddedEmailAttachment[];
 };
 
 type GmailHeader = { name: string; value: string };
 
 type GmailMessagePart = {
   mimeType?: string;
-  body?: { data?: string };
+  filename?: string;
+  body?: { data?: string; attachmentId?: string };
   parts?: GmailMessagePart[];
 };
 
@@ -87,8 +95,12 @@ export async function listMessageIds(accessToken: string, query: string): Promis
 }
 
 function decodeBase64Url(data: string): string {
+  return decodeBase64UrlToBuffer(data).toString("utf-8");
+}
+
+function decodeBase64UrlToBuffer(data: string): Buffer {
   const normalized = data.replace(/-/g, "+").replace(/_/g, "/");
-  return Buffer.from(normalized, "base64").toString("utf-8");
+  return Buffer.from(normalized, "base64");
 }
 
 function findHeader(headers: GmailHeader[] | undefined, name: string): string {
@@ -115,6 +127,19 @@ function extractPlainTextBody(part: GmailMessagePart | undefined): string {
   return "";
 }
 
+function findEmbeddedEmailAttachments(part: GmailMessagePart | undefined): EmbeddedEmailAttachment[] {
+  if (!part) return [];
+
+  const found: EmbeddedEmailAttachment[] = [];
+  if (part.mimeType === "message/rfc822" && part.body?.attachmentId) {
+    found.push({ attachmentId: part.body.attachmentId, filename: part.filename ?? "attachment.eml" });
+  }
+  for (const child of part.parts ?? []) {
+    found.push(...findEmbeddedEmailAttachments(child));
+  }
+  return found;
+}
+
 export async function getMessage(accessToken: string, messageId: string): Promise<GmailMessage> {
   const url = new URL(`${GMAIL_API_BASE}/messages/${messageId}`);
   url.searchParams.set("format", "full");
@@ -129,6 +154,28 @@ export async function getMessage(accessToken: string, messageId: string): Promis
   const data = (await response.json()) as GmailMessageResponse;
   const from = findHeader(data.payload?.headers, "From");
   const bodyText = extractPlainTextBody(data.payload);
+  const embeddedEmailAttachments = findEmbeddedEmailAttachments(data.payload);
 
-  return { id: data.id, from, bodyText };
+  return { id: data.id, from, bodyText, embeddedEmailAttachments };
+}
+
+/** message/rfc822として添付された、転送メール内の別メールの生データ(.eml形式)を取得する */
+export async function getAttachmentRaw(
+  accessToken: string,
+  messageId: string,
+  attachmentId: string
+): Promise<Buffer> {
+  const url = `${GMAIL_API_BASE}/messages/${messageId}/attachments/${attachmentId}`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) {
+    throw new Error(`添付ファイルの取得に失敗しました (${messageId}/${attachmentId}): ${response.status} ${await response.text()}`);
+  }
+
+  const data = (await response.json()) as { data?: string };
+  if (!data.data) throw new Error(`添付ファイルのデータが空です (${messageId}/${attachmentId})`);
+
+  return decodeBase64UrlToBuffer(data.data);
 }

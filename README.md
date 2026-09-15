@@ -41,6 +41,16 @@ npm run ingest
 
 実行するとGmailから直近2日分のVpass通知メールを検索し、新規分だけをSupabaseに登録します。既存のメールは`gmail_message_id`で重複排除されるため、何度実行しても安全です。
 
+## 過去分のメールをまとめて取り込む(バックフィル)
+
+Gmail検索の対象期間（直近2日分）より前の古いVpass通知メールをまとめて取り込みたい場合:
+
+1. Gmail上で対象のメールを複数選択し、「転送」→「添付ファイルとして転送」で自分宛てに送る（1通に複数の`.eml`をまとめられる）
+2. GitHub Actions Secretsに `SELF_FORWARD_SENDER` を追加し、転送元のメールアドレスを設定する
+3. 次回の取り込みジョブ実行時（または手動実行）に、添付された`.eml`も自動的に解析・登録される
+
+添付メール1件ごとに元のメールの`Message-ID`で重複判定するため、同じ転送メールを何度処理しても二重登録されません。
+
 ## 新しいカード会社を追加する方法
 
 1. `ingest/parsers/types.ts` の `EmailParser` インターフェースを実装した新しいファイルを `ingest/parsers/` に追加する（例: `rakuten.ts`）。参考: `ingest/parsers/smbc-vpass.ts`

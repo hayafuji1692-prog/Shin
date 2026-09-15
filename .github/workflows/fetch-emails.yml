@@ -24,6 +24,9 @@ jobs:
           GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # 過去分を.eml添付で自分宛てに転送した場合、その転送元アドレスを設定しておくと
+          # 添付メールも自動で取り込み対象になる（未設定なら通常のVpassメールのみ処理）
+          SELF_FORWARD_SENDER: ${{ secrets.SELF_FORWARD_SENDER }}
 
       - run: npx tsx ingest/apply-recurring.ts
         env:
