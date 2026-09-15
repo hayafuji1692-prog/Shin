@@ -31,11 +31,38 @@ async function insertTransaction(
 ): Promise<"inserted" | "skipped"> {
   const parsed = parser.parse(bodyText);
   if (!parsed) {
-    console.warn(`  ! 本文の解析に失敗、または対象外（取消など）: id=${gmailMessageId}`);
+    console.warn(`  ! 本文の解析に失敗: id=${gmailMessageId}`);
     return "skipped";
   }
 
   const merchantNormalized = normalizeMerchant(parsed.merchantRaw);
+
+  // 「取消」通知: 支出としては計上せず、対応する元の購入取引を探して削除する
+  if (parsed.isCancellation) {
+    const { data: match, error: findError } = await supabase
+      .from("transactions")
+      .select("id")
+      .eq("merchant_normalized", merchantNormalized)
+      .eq("amount", parsed.amount)
+      .eq("source_issuer", parser.issuer)
+      .lte("transaction_date", parsed.transactionDate)
+      .order("transaction_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (findError) throw findError;
+
+    if (!match) {
+      console.warn(`  ! 取消に対応する取引が見つかりません: ${parsed.merchantRaw} ¥${parsed.amount}`);
+      return "skipped";
+    }
+
+    const { error: deleteError } = await supabase.from("transactions").delete().eq("id", match.id);
+    if (deleteError) throw deleteError;
+
+    console.log(`  取消により削除: ${parsed.merchantRaw} ¥${parsed.amount}`);
+    return "inserted";
+  }
+
   const categoryId = categorize(merchantNormalized, categoryRules) ?? uncategorizedId;
 
   const { error: insertError } = await supabase.from("transactions").insert({

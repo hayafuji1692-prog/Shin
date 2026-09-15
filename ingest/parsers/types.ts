@@ -3,6 +3,8 @@ export type ParsedTransaction = {
   merchantRaw: string;
   amount: number;
   cardName: string;
+  /** オーソリのキャンセル通知の場合true。対応する元の購入取引を削除する必要がある */
+  isCancellation?: boolean;
 };
 
 export interface EmailParser {

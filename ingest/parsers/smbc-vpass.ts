@@ -36,11 +36,6 @@ export const smbcVpassParser: EmailParser = {
       return null;
     }
 
-    // 「取消」（オーソリのキャンセル）は支出ではないため取り込まない
-    if (transactionTypeMatch?.[1]?.trim() === "取消") {
-      return null;
-    }
-
     const [, year, month, day, hour, minute] = dateMatch;
     // メール記載の日時は日本時間なので +09:00 を明示し、実行環境のタイムゾーンに左右されないようにする
     const transactionDate = `${year}-${month}-${day}T${hour}:${minute}:00+09:00`;
@@ -50,11 +45,17 @@ export const smbcVpassParser: EmailParser = {
       return null;
     }
 
+    // 「取消」（オーソリのキャンセル）は支出ではないので、対応する元の購入取引を
+    // 削除する必要がある。呼び出し側（fetch-vpass-emails.ts）で処理するため、
+    // ここでは日付・店名・金額はそのまま返しつつフラグを立てる。
+    const isCancellation = transactionTypeMatch?.[1]?.trim() === "取消";
+
     return {
       transactionDate,
       merchantRaw: merchantMatch[1]!.trim(),
       amount,
       cardName: cardMatch ? cardMatch[1]!.trim() : "SMBCカード",
+      isCancellation,
     };
   },
 };
