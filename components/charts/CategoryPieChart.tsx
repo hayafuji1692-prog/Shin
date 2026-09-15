@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { formatYen } from "@/lib/date";
 
 export type CategorySlice = {
@@ -23,13 +23,6 @@ export const CATEGORY_COLORS = [
   "#495057", // グレー（未分類など）
 ];
 
-const MIN_PERCENT_TO_LABEL = 0.06; // 6%未満のスライスはラベルを省略（重なり防止）
-
-function renderLabel({ name, percent }: { name?: string; percent?: number }): string {
-  if (!name || !percent || percent < MIN_PERCENT_TO_LABEL) return "";
-  return `${name} ${Math.round(percent * 100)}%`;
-}
-
 export function CategoryPieChart({ data, month }: { data: CategorySlice[]; month: string }) {
   const router = useRouter();
 
@@ -38,7 +31,7 @@ export function CategoryPieChart({ data, month }: { data: CategorySlice[]; month
   }
 
   return (
-    <ResponsiveContainer width="100%" height={300}>
+    <ResponsiveContainer width="100%" height={280 + Math.ceil(data.length / 3) * 24}>
       <PieChart>
         <Pie
           data={data}
@@ -51,8 +44,6 @@ export function CategoryPieChart({ data, month }: { data: CategorySlice[]; month
           // セクターが一切描画されないことがあるため無効化している
           isAnimationActive={false}
           cursor="pointer"
-          label={renderLabel}
-          labelLine={{ stroke: "var(--text-muted)", strokeWidth: 1 }}
           onClick={(entry: { payload?: CategorySlice }) => {
             const id = entry.payload?.id;
             if (id) router.push(`/transactions?month=${month}&category=${id}`);
@@ -63,6 +54,13 @@ export function CategoryPieChart({ data, month }: { data: CategorySlice[]; month
           ))}
         </Pie>
         <Tooltip formatter={(value) => formatYen(Number(value))} />
+        {/* スライスが小さいカテゴリでも文字が重ならず全部読めるよう、
+            スライス上のラベルではなく凡例で全カテゴリ名を表示する */}
+        <Legend
+          verticalAlign="bottom"
+          height={Math.ceil(data.length / 3) * 24}
+          wrapperStyle={{ fontSize: 12, lineHeight: "20px" }}
+        />
       </PieChart>
     </ResponsiveContainer>
   );
