@@ -2,18 +2,27 @@ import Link from "next/link";
 import { CategoryPieChart } from "@/components/charts/CategoryPieChart";
 import { MonthlyTrendChart } from "@/components/charts/MonthlyTrendChart";
 import { currentMonthJst, formatMonthLabel, formatYen } from "@/lib/date";
-import { getCategories, getMonthlyCategoryTotals, getMonthlyTrend, getTransactions } from "@/lib/queries";
+import {
+  getCategories,
+  getMonthlyCategoryTotals,
+  getMonthlyTrend,
+  getTransactionCount,
+  getTransactions,
+} from "@/lib/queries";
 
 export const revalidate = 0;
+
+const RECENT_TRANSACTIONS_LIMIT = 5;
 
 export default async function DashboardPage() {
   const currentMonth = currentMonthJst();
 
-  const [categories, monthlyTotals, trend, transactions] = await Promise.all([
+  const [categories, monthlyTotals, trend, transactionCount, recentTransactions] = await Promise.all([
     getCategories(),
     getMonthlyCategoryTotals(currentMonth),
     getMonthlyTrend(currentMonth, 6),
-    getTransactions({ month: currentMonth }),
+    getTransactionCount({ month: currentMonth }),
+    getTransactions({ month: currentMonth, limit: RECENT_TRANSACTIONS_LIMIT }),
   ]);
 
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
@@ -42,7 +51,7 @@ export default async function DashboardPage() {
         </div>
         <div className="summary-card">
           <p className="summary-label">取引件数</p>
-          <p className="summary-value">{transactions.length}件</p>
+          <p className="summary-value">{transactionCount}件</p>
         </div>
       </div>
 
@@ -80,11 +89,11 @@ export default async function DashboardPage() {
 
       <div className="card">
         <h2 className="section-title">最近の取引</h2>
-        {transactions.length === 0 ? (
+        {recentTransactions.length === 0 ? (
           <p className="empty-state">今月の取引はまだありません</p>
         ) : (
           <ul className="transaction-list">
-            {transactions.slice(0, 5).map((tx) => (
+            {recentTransactions.map((tx) => (
               <li key={tx.id} className="transaction-item">
                 <div>
                   <div className="transaction-merchant">{tx.merchant_raw}</div>

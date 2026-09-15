@@ -58,29 +58,54 @@ export async function getCategoryRules(): Promise<CategoryRule[]> {
 export type TransactionFilter = {
   month?: string; // YYYY-MM-01
   categoryId?: string;
+  limit?: number;
 };
 
-export async function getTransactions(filter: TransactionFilter): Promise<Transaction[]> {
-  let query = supabase
-    .from("transactions")
-    .select(
-      "id, gmail_message_id, card_id, transaction_date, merchant_raw, merchant_normalized, amount, category_id, source_issuer, created_at"
-    )
-    .order("transaction_date", { ascending: false });
+function applyTransactionFilters(query: any, filter: Pick<TransactionFilter, "month" | "categoryId">) {
+  let q = query;
 
   if (filter.month) {
     const [year, month] = filter.month.split("-").map(Number) as [number, number];
     const start = `${filter.month}T00:00:00+09:00`;
     const nextMonthDate = new Date(Date.UTC(year, month, 1));
     const end = `${nextMonthDate.getUTCFullYear()}-${String(nextMonthDate.getUTCMonth() + 1).padStart(2, "0")}-01T00:00:00+09:00`;
-    query = query.gte("transaction_date", start).lt("transaction_date", end);
+    q = q.gte("transaction_date", start).lt("transaction_date", end);
   }
 
   if (filter.categoryId) {
-    query = query.eq("category_id", filter.categoryId);
+    q = q.eq("category_id", filter.categoryId);
+  }
+
+  return q;
+}
+
+export async function getTransactions(filter: TransactionFilter): Promise<Transaction[]> {
+  let query = applyTransactionFilters(
+    supabase
+      .from("transactions")
+      .select(
+        "id, gmail_message_id, card_id, transaction_date, merchant_raw, merchant_normalized, amount, category_id, source_issuer, created_at"
+      )
+      .order("transaction_date", { ascending: false }),
+    filter
+  );
+
+  if (filter.limit) {
+    query = query.limit(filter.limit);
   }
 
   const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
+}
+
+/** 件数のみ取得（行データを転送しないので取引数が多い月でも軽い） */
+export async function getTransactionCount(filter: Pick<TransactionFilter, "month" | "categoryId">): Promise<number> {
+  const query = applyTransactionFilters(
+    supabase.from("transactions").select("*", { count: "exact", head: true }),
+    filter
+  );
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
 }
