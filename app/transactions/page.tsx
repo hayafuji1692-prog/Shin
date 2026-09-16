@@ -1,4 +1,5 @@
 import { TransactionFilters } from "@/components/ui/TransactionFilters";
+import { TransactionList } from "@/components/ui/TransactionList";
 import { currentMonthJst, formatMonthLabel, formatYen, monthsBeforeJst } from "@/lib/date";
 import { getCategories, getTransactions } from "@/lib/queries";
 
@@ -24,7 +25,6 @@ export default async function TransactionsPage({
     getTransactions({ month: selectedMonth, categoryId: selectedCategory || undefined }),
   ]);
 
-  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
   const total = transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
 
   return (
@@ -38,31 +38,7 @@ export default async function TransactionsPage({
       </div>
 
       <div className="card">
-        {transactions.length === 0 ? (
-          <p className="empty-state">該当する取引がありません</p>
-        ) : (
-          <ul className="transaction-list">
-            {transactions.map((tx) => (
-              <li key={tx.id} className="transaction-item">
-                <div>
-                  <div className="transaction-merchant">{tx.merchant_raw}</div>
-                  <div className="transaction-meta">
-                    {new Date(tx.transaction_date).toLocaleString("ja-JP", {
-                      month: "numeric",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </div>
-                  {tx.category_id && (
-                    <span className="category-tag">{categoryNameById.get(tx.category_id) ?? "未分類"}</span>
-                  )}
-                </div>
-                <span className="transaction-amount">{formatYen(tx.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <TransactionList transactions={transactions} categories={categories} />
       </div>
     </>
   );
