@@ -37,7 +37,10 @@ async function insertTransaction(
 
   const merchantNormalized = normalizeMerchant(parsed.merchantRaw);
 
-  // 「取消」通知: 支出としては計上せず、対応する元の購入取引を探して削除する
+  // 「取消」通知: 支出としては計上せず、対応する元の購入取引を無効化する。
+  // ここでdeleteすると gmail_message_id の一意制約による保護が消え、同じ購入メールを
+  // 万一再度取り込んだ場合（再転送やバックフィルの再実行など）に取消済みの取引が
+  // 復活してしまうため、行は残したまま is_cancelled フラグを立てるだけにする。
   if (parsed.isCancellation) {
     const { data: match, error: findError } = await supabase
       .from("transactions")
@@ -45,6 +48,7 @@ async function insertTransaction(
       .eq("merchant_normalized", merchantNormalized)
       .eq("amount", parsed.amount)
       .eq("source_issuer", parser.issuer)
+      .eq("is_cancelled", false)
       .lte("transaction_date", parsed.transactionDate)
       .order("transaction_date", { ascending: false })
       .limit(1)
@@ -56,10 +60,13 @@ async function insertTransaction(
       return "skipped";
     }
 
-    const { error: deleteError } = await supabase.from("transactions").delete().eq("id", match.id);
-    if (deleteError) throw deleteError;
+    const { error: updateError } = await supabase
+      .from("transactions")
+      .update({ is_cancelled: true })
+      .eq("id", match.id);
+    if (updateError) throw updateError;
 
-    console.log(`  取消により削除: ${parsed.merchantRaw} ¥${parsed.amount}`);
+    console.log(`  取消により無効化: ${parsed.merchantRaw} ¥${parsed.amount}`);
     return "inserted";
   }
 

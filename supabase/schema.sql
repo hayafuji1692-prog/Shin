@@ -41,6 +41,7 @@ create table transactions (
   amount              numeric(12, 2) not null,
   category_id         uuid references categories(id),
   source_issuer       text not null default 'smbc',
+  is_cancelled        boolean not null default false, -- 「取消」通知が来た元取引。行はdeleteせず論理的に無効化する
   created_at          timestamptz not null default now()
 );
 create index idx_transactions_date on transactions (transaction_date);
@@ -140,6 +141,7 @@ select
   category_id,
   sum(amount) as total
 from transactions
+where not is_cancelled
 group by 1, 2;
 
 -- ── Row Level Security ──────────────────────────────────

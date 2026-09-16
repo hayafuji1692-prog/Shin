@@ -62,7 +62,7 @@ export type TransactionFilter = {
 };
 
 function applyTransactionFilters(query: any, filter: Pick<TransactionFilter, "month" | "categoryId">) {
-  let q = query;
+  let q = query.eq("is_cancelled", false);
 
   if (filter.month) {
     const [year, month] = filter.month.split("-").map(Number) as [number, number];
