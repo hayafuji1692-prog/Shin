@@ -25,6 +25,8 @@ export function RulesManager({
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [bulkText, setBulkText] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryDrafts, setCategoryDrafts] = useState<Record<string, string>>({});
+  const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [bulkErrors, setBulkErrors] = useState<BulkError[]>([]);
@@ -145,6 +147,34 @@ export function RulesManager({
     }
   }
 
+  async function handleRenameCategory(id: string, name: string) {
+    if (!name.trim()) return;
+    setRenamingId(id);
+    setErrorMessage("");
+    try {
+      const res = await fetch("/api/categories", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, name: name.trim(), secret }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          setErrorMessage("合言葉が違います。もう一度ロック解除してください");
+          lock();
+        } else {
+          setErrorMessage(data.error ?? "変更に失敗しました");
+        }
+        return;
+      }
+      router.refresh();
+    } catch {
+      setErrorMessage("通信に失敗しました");
+    } finally {
+      setRenamingId(null);
+    }
+  }
+
   async function handleDelete(id: string) {
     setErrorMessage("");
     try {
@@ -215,6 +245,29 @@ export function RulesManager({
             追加
           </button>
         </div>
+      </div>
+
+      <div className="card">
+        <h2 className="section-title">カテゴリ一覧（名前を変更できます）</h2>
+        <ul className="transaction-list">
+          {categories.map((c) => (
+            <li key={c.id} className="transaction-item">
+              <input
+                className="admin-input"
+                value={categoryDrafts[c.id] ?? c.name}
+                onChange={(e) => setCategoryDrafts((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && handleRenameCategory(c.id, categoryDrafts[c.id] ?? c.name)}
+              />
+              <button
+                className="btn-text"
+                disabled={renamingId === c.id || (categoryDrafts[c.id] ?? c.name) === c.name}
+                onClick={() => handleRenameCategory(c.id, categoryDrafts[c.id] ?? c.name)}
+              >
+                保存
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="card">

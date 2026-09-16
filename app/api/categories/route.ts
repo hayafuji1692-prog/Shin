@@ -41,3 +41,30 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+// カテゴリ名を変更する。過去の取引・ルールはcategory_idで紐づいているので、
+// 名前だけ変えれば見た目もそのまま追従する。
+export async function PATCH(request: Request) {
+  const body = await request.json();
+
+  if (!isAuthorized(body.secret)) {
+    return NextResponse.json({ error: "合言葉が違います" }, { status: 401 });
+  }
+
+  const id = String(body.id ?? "");
+  const name = String(body.name ?? "").trim();
+  if (!id || !name) {
+    return NextResponse.json({ error: "idと新しい名前は必須です" }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("categories").update({ name }).eq("id", id);
+  if (error) {
+    if (error.code === "23505") {
+      return NextResponse.json({ error: "同じ名前のカテゴリが既にあります" }, { status: 409 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
