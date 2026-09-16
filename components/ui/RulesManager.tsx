@@ -24,6 +24,7 @@ export function RulesManager({
   const [keyword, setKeyword] = useState("");
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [bulkText, setBulkText] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const [errorMessage, setErrorMessage] = useState("");
   const [bulkErrors, setBulkErrors] = useState<BulkError[]>([]);
@@ -115,6 +116,35 @@ export function RulesManager({
     if (ok) setBulkText(errors.map((e) => e.line).join("\n"));
   }
 
+  async function handleAddCategory() {
+    if (!newCategoryName.trim()) return;
+    setIsSubmitting(true);
+    setErrorMessage("");
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCategoryName.trim(), secret }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          setErrorMessage("合言葉が違います。もう一度ロック解除してください");
+          lock();
+        } else {
+          setErrorMessage(data.error ?? "追加に失敗しました");
+        }
+        return;
+      }
+      setNewCategoryName("");
+      router.refresh();
+    } catch {
+      setErrorMessage("通信に失敗しました");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleDelete(id: string) {
     setErrorMessage("");
     try {
@@ -167,12 +197,28 @@ export function RulesManager({
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h2 className="section-title" style={{ margin: 0 }}>
-            まとめて登録
+            カテゴリを追加
           </h2>
           <button className="btn-text" onClick={lock}>
             ロック
           </button>
         </div>
+        <div className="filter-row">
+          <input
+            className="admin-input"
+            placeholder="新しいカテゴリ名（例: 日用品）"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+          />
+          <button className="btn-primary" disabled={isSubmitting} onClick={handleAddCategory}>
+            追加
+          </button>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2 className="section-title">まとめて登録</h2>
         <p className="transaction-meta" style={{ marginBottom: 8 }}>
           1行に「キーワード,カテゴリ名」の形式で複数行まとめて貼り付けられます
         </p>
