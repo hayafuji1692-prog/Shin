@@ -14,6 +14,10 @@ export interface EmailParser {
   senderDomain: string;
   /** Fromヘッダーの文字列からこのパーサーが対象とするメールかを判定する */
   matchesSender(fromHeader: string): boolean;
-  /** メール本文（プレーンテキスト）から取引情報を抽出する。抽出できない場合はnull */
-  parse(bodyText: string): ParsedTransaction | null;
+  /**
+   * メール本文（プレーンテキスト）から取引情報を抽出する。
+   * 1通のメールに複数件の取引（「ご利用明細のお知らせ」のような一括通知）が
+   * 含まれることがあるため、常に配列で返す。抽出できなければ空配列。
+   */
+  parseAll(bodyText: string): ParsedTransaction[];
 }

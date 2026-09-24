@@ -5,7 +5,7 @@ import type { CategoryRule } from "../lib/types";
 import { categorize, normalizeMerchant } from "./categorize";
 import { getAccessToken, getAttachmentRaw, getMessage, listMessageIds } from "./gmail-client";
 import { buildSearchQuery, findParserForSender } from "./parsers";
-import type { EmailParser } from "./parsers/types";
+import type { EmailParser, ParsedTransaction } from "./parsers/types";
 
 // 実行間隔（GitHub Actionsのcronは1時間毎）より広めの窓を持たせ、取りこぼしを防止する。
 // 重複は transactions.gmail_message_id の一意制約で防がれるので安全に再実行できる。
@@ -24,17 +24,11 @@ function buildFullQuery(days: number): string {
 async function insertTransaction(
   supabase: SupabaseClient,
   gmailMessageId: string,
-  parser: EmailParser,
-  bodyText: string,
+  issuer: string,
+  parsed: ParsedTransaction,
   categoryRules: CategoryRule[],
   uncategorizedId: string | null
 ): Promise<"inserted" | "skipped"> {
-  const parsed = parser.parse(bodyText);
-  if (!parsed) {
-    console.warn(`  ! 本文の解析に失敗: id=${gmailMessageId}`);
-    return "skipped";
-  }
-
   const merchantNormalized = normalizeMerchant(parsed.merchantRaw);
 
   // 「取消」通知: 支出としては計上せず、対応する元の購入取引を無効化する。
@@ -47,7 +41,7 @@ async function insertTransaction(
       .select("id")
       .eq("merchant_normalized", merchantNormalized)
       .eq("amount", parsed.amount)
-      .eq("source_issuer", parser.issuer)
+      .eq("source_issuer", issuer)
       .eq("is_cancelled", false)
       .lte("transaction_date", parsed.transactionDate)
       .order("transaction_date", { ascending: false })
@@ -79,7 +73,7 @@ async function insertTransaction(
     merchant_normalized: merchantNormalized,
     amount: parsed.amount,
     category_id: categoryId,
-    source_issuer: parser.issuer,
+    source_issuer: issuer,
   });
 
   if (insertError) {
@@ -89,6 +83,35 @@ async function insertTransaction(
   }
 
   return "inserted";
+}
+
+// 1通のメールに複数件の取引（「ご利用明細のお知らせ」のような一括通知）が含まれる
+// ことがあるため、既存の1件だけの通知との互換性を保ちつつ全件処理する。
+// 1件目は従来通りメール自体のIDをそのままdedupキーに使い、2件目以降だけ連番を付ける
+// （そうしないと、これまで登録済みの1件通知メールのキー形式が変わってしまい、
+// 次回の実行で同じ取引が重複登録されてしまう）。
+async function processEmail(
+  supabase: SupabaseClient,
+  baseDedupKey: string,
+  parser: EmailParser,
+  bodyText: string,
+  categoryRules: CategoryRule[],
+  uncategorizedId: string | null
+): Promise<{ inserted: number; skipped: number }> {
+  const parsedTransactions = parser.parseAll(bodyText);
+  if (parsedTransactions.length === 0) {
+    console.warn(`  ! 本文の解析に失敗: id=${baseDedupKey}`);
+    return { inserted: 0, skipped: 1 };
+  }
+
+  let inserted = 0;
+  let skipped = 0;
+  for (const [i, parsed] of parsedTransactions.entries()) {
+    const dedupKey = i === 0 ? baseDedupKey : `${baseDedupKey}:${i}`;
+    const result = await insertTransaction(supabase, dedupKey, parser.issuer, parsed, categoryRules, uncategorizedId);
+    result === "inserted" ? inserted++ : skipped++;
+  }
+  return { inserted, skipped };
 }
 
 async function main() {
@@ -136,7 +159,7 @@ async function main() {
     // 同じメールが.eml添付として転送されてきても二重登録されない。
     const directParser = findParserForSender(message.from);
     if (directParser) {
-      const result = await insertTransaction(
+      const result = await processEmail(
         supabase,
         message.messageId,
         directParser,
@@ -144,7 +167,8 @@ async function main() {
         categoryRules,
         uncategorizedId
       );
-      result === "inserted" ? inserted++ : skipped++;
+      inserted += result.inserted;
+      skipped += result.skipped;
     } else if (message.embeddedEmailAttachments.length === 0) {
       console.warn(`  ! 対応パーサーなし: from="${message.from}" (id=${messageId})`);
       skipped++;
@@ -165,7 +189,7 @@ async function main() {
         continue;
       }
 
-      const result = await insertTransaction(
+      const result = await processEmail(
         supabase,
         dedupKey,
         embeddedParser,
@@ -173,7 +197,8 @@ async function main() {
         categoryRules,
         uncategorizedId
       );
-      result === "inserted" ? inserted++ : skipped++;
+      inserted += result.inserted;
+      skipped += result.skipped;
     }
   }
 
