@@ -175,6 +175,36 @@ export function RulesManager({
     }
   }
 
+  async function handleDeleteCategory(id: string, name: string) {
+    if (!window.confirm(`「${name}」を削除します。このカテゴリの取引はすべて「未分類」に移動されます。よろしいですか？`)) {
+      return;
+    }
+    setRenamingId(id);
+    setErrorMessage("");
+    try {
+      const res = await fetch("/api/categories", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, secret }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          setErrorMessage("合言葉が違います。もう一度ロック解除してください");
+          lock();
+        } else {
+          setErrorMessage(data.error ?? "削除に失敗しました");
+        }
+        return;
+      }
+      router.refresh();
+    } catch {
+      setErrorMessage("通信に失敗しました");
+    } finally {
+      setRenamingId(null);
+    }
+  }
+
   async function handleDelete(id: string) {
     setErrorMessage("");
     try {
@@ -265,6 +295,15 @@ export function RulesManager({
               >
                 保存
               </button>
+              {c.name !== "未分類" && (
+                <button
+                  className="btn-text"
+                  disabled={renamingId === c.id}
+                  onClick={() => handleDeleteCategory(c.id, c.name)}
+                >
+                  削除
+                </button>
+              )}
             </li>
           ))}
         </ul>

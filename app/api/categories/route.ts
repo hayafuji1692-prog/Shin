@@ -68,3 +68,44 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+// カテゴリを削除する。そのカテゴリが付いていた取引はすべて「未分類」に付け替えてから
+// 削除する（取引データ自体は失われない）。紐づく分類ルールはDBのon delete cascadeで
+// 自動的に削除される。
+export async function DELETE(request: Request) {
+  const body = await request.json();
+
+  if (!isAuthorized(body.secret)) {
+    return NextResponse.json({ error: "合言葉が違います" }, { status: 401 });
+  }
+
+  const id = String(body.id ?? "");
+  if (!id) {
+    return NextResponse.json({ error: "idは必須です" }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
+
+  const { data: uncategorized, error: uncategorizedError } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("name", "未分類")
+    .maybeSingle();
+  if (uncategorizedError) return NextResponse.json({ error: uncategorizedError.message }, { status: 500 });
+  if (!uncategorized) return NextResponse.json({ error: "未分類カテゴリが見つかりません" }, { status: 500 });
+
+  if (id === uncategorized.id) {
+    return NextResponse.json({ error: "「未分類」は削除できません" }, { status: 400 });
+  }
+
+  const { error: reassignError } = await supabase
+    .from("transactions")
+    .update({ category_id: uncategorized.id })
+    .eq("category_id", id);
+  if (reassignError) return NextResponse.json({ error: reassignError.message }, { status: 500 });
+
+  const { error: deleteError } = await supabase.from("categories").delete().eq("id", id);
+  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
