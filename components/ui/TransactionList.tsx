@@ -197,6 +197,7 @@ export function TransactionList({
               <div className="transaction-merchant">{tx.merchant_raw}</div>
               <div className="transaction-meta">
                 {new Date(tx.transaction_date).toLocaleString("ja-JP", {
+                  timeZone: "Asia/Tokyo",
                   month: "numeric",
                   day: "numeric",
                   hour: "2-digit",
