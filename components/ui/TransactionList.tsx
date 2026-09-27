@@ -21,6 +21,12 @@ export function TransactionList({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [manualDate, setManualDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [manualMerchant, setManualMerchant] = useState("");
+  const [manualAmount, setManualAmount] = useState("");
+  const [manualCategoryId, setManualCategoryId] = useState(categories[0]?.id ?? "");
+  const [isAddingManual, setIsAddingManual] = useState(false);
+
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
 
   useEffect(() => {
@@ -72,8 +78,46 @@ export function TransactionList({
     }
   }
 
-  if (transactions.length === 0) {
-    return <p className="empty-state">該当する取引がありません</p>;
+  async function handleAddManual() {
+    if (!manualDate || !manualMerchant.trim() || !manualCategoryId) return;
+    const amountNumber = Number(manualAmount);
+    if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+      setErrorMessage("金額は正しい数値で入力してください");
+      return;
+    }
+
+    setIsAddingManual(true);
+    setErrorMessage("");
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transactionDate: `${manualDate}T12:00:00+09:00`,
+          merchantRaw: manualMerchant.trim(),
+          amount: amountNumber,
+          categoryId: manualCategoryId,
+          secret,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          setErrorMessage("合言葉が違います。もう一度ロック解除してください");
+          lock();
+        } else {
+          setErrorMessage(data.error ?? "追加に失敗しました");
+        }
+        return;
+      }
+      setManualMerchant("");
+      setManualAmount("");
+      router.refresh();
+    } catch {
+      setErrorMessage("通信に失敗しました");
+    } finally {
+      setIsAddingManual(false);
+    }
   }
 
   return (
@@ -102,8 +146,50 @@ export function TransactionList({
           </button>
         </div>
       )}
+      {unlocked && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h2 className="section-title">現金など手動で追加</h2>
+          <div className="filter-row">
+            <input
+              type="date"
+              className="admin-input"
+              value={manualDate}
+              onChange={(e) => setManualDate(e.target.value)}
+            />
+            <input
+              className="admin-input"
+              placeholder="内容（例: ランチ代）"
+              value={manualMerchant}
+              onChange={(e) => setManualMerchant(e.target.value)}
+            />
+          </div>
+          <div className="filter-row">
+            <input
+              type="number"
+              className="admin-input"
+              placeholder="金額"
+              value={manualAmount}
+              onChange={(e) => setManualAmount(e.target.value)}
+            />
+            <select value={manualCategoryId} onChange={(e) => setManualCategoryId(e.target.value)}>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button className="btn-primary" disabled={isAddingManual} onClick={handleAddManual}>
+            追加
+          </button>
+        </div>
+      )}
+
       {errorMessage && <p className="admin-error">{errorMessage}</p>}
 
+      {transactions.length === 0 ? (
+        <p className="empty-state">該当する取引がありません</p>
+      ) : (
       <ul className="transaction-list">
         {transactions.map((tx) => (
           <li key={tx.id} className="transaction-item">
@@ -140,6 +226,7 @@ export function TransactionList({
           </li>
         ))}
       </ul>
+      )}
     </>
   );
 }
