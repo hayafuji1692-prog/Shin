@@ -2,7 +2,7 @@ name: Fetch Vpass Emails
 
 on:
   schedule:
-    - cron: "0 * * * *" # 1時間毎
+    - cron: "*/15 * * * *" # 15分毎
   workflow_dispatch: {}
 
 jobs:
