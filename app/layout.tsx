@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { RefreshOnFocus } from "@/components/ui/RefreshOnFocus";
 import { RegisterServiceWorker } from "@/components/ui/RegisterServiceWorker";
 import "./globals.css";
 
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja">
       <body>
         <RegisterServiceWorker />
+        <RefreshOnFocus />
         <header className="header">
           <span className="header-title">家計簿</span>
           <nav className="nav">

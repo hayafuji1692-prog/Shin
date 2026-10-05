@@ -40,6 +40,7 @@ export default async function DashboardPage() {
     .sort((a, b) => b.value - a.value);
 
   const trendData = trend.map((point) => ({
+    month: point.month,
     label: formatMonthLabel(point.month).replace(/^\d+年/, ""),
     total: point.total,
   }));

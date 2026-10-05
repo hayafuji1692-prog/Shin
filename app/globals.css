@@ -313,3 +313,7 @@ a {
   color: var(--danger);
   font-size: 12px;
 }
+
+.clickable-chart .recharts-wrapper {
+  cursor: pointer;
+}
