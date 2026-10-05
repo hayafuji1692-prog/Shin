@@ -27,6 +27,9 @@ export function TransactionList({
   const [manualCategoryId, setManualCategoryId] = useState(categories[0]?.id ?? "");
   const [isAddingManual, setIsAddingManual] = useState(false);
 
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
 
   useEffect(() => {
@@ -70,6 +73,37 @@ export function TransactionList({
         }
         return;
       }
+      router.refresh();
+    } catch {
+      setErrorMessage("通信に失敗しました");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function handleRename(transactionId: string) {
+    const merchantRaw = editingName.trim();
+    if (!merchantRaw) return;
+
+    setSavingId(transactionId);
+    setErrorMessage("");
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: transactionId, merchantRaw, secret }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        if (res.status === 401) {
+          setErrorMessage("合言葉が違います。もう一度ロック解除してください");
+          lock();
+        } else {
+          setErrorMessage(data.error ?? "名前の変更に失敗しました");
+        }
+        return;
+      }
+      setEditingNameId(null);
       router.refresh();
     } catch {
       setErrorMessage("通信に失敗しました");
@@ -194,7 +228,42 @@ export function TransactionList({
         {transactions.map((tx) => (
           <li key={tx.id} className="transaction-item">
             <div>
-              <div className="transaction-merchant">{tx.merchant_raw}</div>
+              {editingNameId === tx.id ? (
+                <div className="filter-row" style={{ marginBottom: 4 }}>
+                  <input
+                    className="admin-input"
+                    autoFocus
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleRename(tx.id);
+                      if (e.key === "Escape") setEditingNameId(null);
+                    }}
+                  />
+                  <button className="btn-primary" disabled={savingId === tx.id} onClick={() => handleRename(tx.id)}>
+                    保存
+                  </button>
+                  <button className="btn-text" onClick={() => setEditingNameId(null)}>
+                    取消
+                  </button>
+                </div>
+              ) : (
+                <div className="transaction-merchant">
+                  {tx.merchant_raw}
+                  {unlocked && (
+                    <button
+                      className="btn-text"
+                      aria-label="名前を編集"
+                      onClick={() => {
+                        setEditingNameId(tx.id);
+                        setEditingName(tx.merchant_raw);
+                      }}
+                    >
+                      ✎
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="transaction-meta">
                 {new Date(tx.transaction_date).toLocaleString("ja-JP", {
                   timeZone: "Asia/Tokyo",

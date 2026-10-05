@@ -52,10 +52,11 @@ async function insertTransaction(
       ? new Date(Date.parse(parsed.transactionDate) + 24 * 60 * 60 * 1000 - 1).toISOString()
       : parsed.transactionDate;
 
-    // 店名は全角/半角の違いを吸収して比べたいので、金額などで絞った候補をこちらで突き合わせる
+    // 店名は全角/半角の違いを吸収して比べたいので、金額などで絞った候補をこちらで突き合わせる。
+    // 表示名(merchant_raw)は画面から編集できるため、元の店名から作った merchant_normalized で比べる。
     const { data: candidates, error: findError } = await supabase
       .from("transactions")
-      .select("id, merchant_raw")
+      .select("id, merchant_normalized")
       .eq("amount", parsed.amount)
       .eq("source_issuer", issuer)
       .eq("is_cancelled", false)
@@ -64,7 +65,7 @@ async function insertTransaction(
       .limit(50);
     if (findError) throw findError;
 
-    const match = (candidates ?? []).find((row) => normalizeMerchant(row.merchant_raw) === merchantNormalized);
+    const match = (candidates ?? []).find((row) => normalizeMerchant(row.merchant_normalized) === merchantNormalized);
     if (!match) {
       console.warn(`  ! 取消に対応する取引が見つかりません: ${parsed.merchantRaw} ¥${parsed.amount}`);
       return "skipped";

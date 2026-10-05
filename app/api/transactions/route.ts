@@ -40,3 +40,26 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+// 取引の表示名を変更する（「Visa加盟店」など、メールの店名が分かりにくい場合用）。
+// merchant_normalized は元の店名のまま残す。後から届く返品・取消メールとの突き合わせは
+// こちらを使うため、表示名を変えても紐づけが外れない。
+export async function PATCH(request: Request) {
+  const body = await request.json();
+
+  if (!isAuthorized(body.secret)) {
+    return NextResponse.json({ error: "合言葉が違います" }, { status: 401 });
+  }
+
+  const id = String(body.id ?? "");
+  const merchantRaw = String(body.merchantRaw ?? "").trim();
+  if (!id || !merchantRaw) {
+    return NextResponse.json({ error: "idと新しい名前は必須です" }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("transactions").update({ merchant_raw: merchantRaw }).eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
