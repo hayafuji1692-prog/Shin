@@ -7,6 +7,8 @@ import type { Category, Transaction } from "@/lib/types";
 
 const SECRET_STORAGE_KEY = "kakeibo_admin_secret";
 
+type Patch = Partial<Pick<Transaction, "merchant_raw" | "category_id">>;
+
 export function TransactionList({
   transactions,
   categories,
@@ -18,8 +20,13 @@ export function TransactionList({
   const [secret, setSecret] = useState("");
   const [unlocked, setUnlocked] = useState(false);
   const [secretInput, setSecretInput] = useState("");
-  const [savingId, setSavingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [overlay, setOverlay] = useState<{ base: Transaction[]; patches: Record<string, Patch> }>({
+    base: transactions,
+    patches: {},
+  });
+  const patches = overlay.base === transactions ? overlay.patches : {};
+  const rows = transactions.map((tx) => (patches[tx.id] ? { ...tx, ...patches[tx.id] } : tx));
 
   const [manualDate, setManualDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [manualMerchant, setManualMerchant] = useState("");
@@ -54,62 +61,77 @@ export function TransactionList({
     setUnlocked(false);
   }
 
-  async function handleCategoryChange(transactionId: string, categoryId: string) {
-    setSavingId(transactionId);
+  // 保存の通信と画面データの再取得で2秒前後かかり、押しても画面が変わらず重く感じるため、
+  // 変更はまず画面に即反映し、通信は裏で行う。失敗したら元に戻してエラーを出す。
+  // 再取得でtransactionsの中身が新しくなると、仮の変更(patches)は自動的に捨てられる。
+  function applyPatch(id: string, patch: Patch) {
+    setOverlay((prev) => {
+      const current = prev.base === transactions ? prev.patches : {};
+      return { base: transactions, patches: { ...current, [id]: { ...current[id], ...patch } } };
+    });
+  }
+
+  function revertPatch(id: string, keys: (keyof Patch)[]) {
+    setOverlay((prev) => {
+      if (prev.base !== transactions) return prev;
+      const next = { ...prev.patches[id] };
+      for (const key of keys) delete next[key];
+      return { base: transactions, patches: { ...prev.patches, [id]: next } };
+    });
+  }
+
+  async function saveOptimistically(
+    id: string,
+    patch: Patch,
+    request: { url: string; method: string; body: object },
+    failMessage: string
+  ) {
     setErrorMessage("");
+    applyPatch(id, patch);
     try {
-      const res = await fetch("/api/transactions/categorize", {
-        method: "POST",
+      const res = await fetch(request.url, {
+        method: request.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactionId, categoryId, secret }),
+        body: JSON.stringify({ ...request.body, secret }),
       });
       if (!res.ok) {
+        revertPatch(id, Object.keys(patch) as (keyof Patch)[]);
         const data = await res.json();
         if (res.status === 401) {
           setErrorMessage("合言葉が違います。もう一度ロック解除してください");
           lock();
         } else {
-          setErrorMessage(data.error ?? "更新に失敗しました");
+          setErrorMessage(data.error ?? failMessage);
         }
         return;
       }
       router.refresh();
     } catch {
+      revertPatch(id, Object.keys(patch) as (keyof Patch)[]);
       setErrorMessage("通信に失敗しました");
-    } finally {
-      setSavingId(null);
     }
   }
 
-  async function handleRename(transactionId: string) {
+  function handleCategoryChange(transactionId: string, categoryId: string) {
+    return saveOptimistically(
+      transactionId,
+      { category_id: categoryId },
+      { url: "/api/transactions/categorize", method: "POST", body: { transactionId, categoryId } },
+      "更新に失敗しました"
+    );
+  }
+
+  function handleRename(transactionId: string) {
     const merchantRaw = editingName.trim();
     if (!merchantRaw) return;
 
-    setSavingId(transactionId);
-    setErrorMessage("");
-    try {
-      const res = await fetch("/api/transactions", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: transactionId, merchantRaw, secret }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        if (res.status === 401) {
-          setErrorMessage("合言葉が違います。もう一度ロック解除してください");
-          lock();
-        } else {
-          setErrorMessage(data.error ?? "名前の変更に失敗しました");
-        }
-        return;
-      }
-      setEditingNameId(null);
-      router.refresh();
-    } catch {
-      setErrorMessage("通信に失敗しました");
-    } finally {
-      setSavingId(null);
-    }
+    setEditingNameId(null);
+    return saveOptimistically(
+      transactionId,
+      { merchant_raw: merchantRaw },
+      { url: "/api/transactions", method: "PATCH", body: { id: transactionId, merchantRaw } },
+      "名前の変更に失敗しました"
+    );
   }
 
   async function handleAddManual() {
@@ -225,7 +247,7 @@ export function TransactionList({
         <p className="empty-state">該当する取引がありません</p>
       ) : (
       <ul className="transaction-list">
-        {transactions.map((tx) => (
+        {rows.map((tx) => (
           <li key={tx.id} className="transaction-item">
             <div>
               {editingNameId === tx.id ? (
@@ -240,7 +262,7 @@ export function TransactionList({
                       if (e.key === "Escape") setEditingNameId(null);
                     }}
                   />
-                  <button className="btn-primary" disabled={savingId === tx.id} onClick={() => handleRename(tx.id)}>
+                  <button className="btn-primary" onClick={() => handleRename(tx.id)}>
                     保存
                   </button>
                   <button className="btn-text" onClick={() => setEditingNameId(null)}>
@@ -277,7 +299,6 @@ export function TransactionList({
                 <select
                   className="category-select"
                   value={tx.category_id ?? ""}
-                  disabled={savingId === tx.id}
                   onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
                 >
                   {categories.map((c) => (
