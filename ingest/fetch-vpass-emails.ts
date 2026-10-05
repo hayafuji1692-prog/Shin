@@ -36,19 +36,35 @@ async function insertTransaction(
   // 万一再度取り込んだ場合（再転送やバックフィルの再実行など）に取消済みの取引が
   // 復活してしまうため、行は残したまま is_cancelled フラグを立てるだけにする。
   if (parsed.isCancellation) {
-    const { data: match, error: findError } = await supabase
+    // 同じ取消メールは検索窓の間ずっと再処理される。処理済みの記録（下で保存する
+    // is_cancelled=true の行）があれば何もしない。これがないと、同じ店・同じ金額の
+    // 別の購入まで、再処理のたびに誤って取消してしまう。
+    const { data: processed, error: processedError } = await supabase
       .from("transactions")
       .select("id")
-      .eq("merchant_normalized", merchantNormalized)
+      .eq("gmail_message_id", gmailMessageId)
+      .maybeSingle();
+    if (processedError) throw processedError;
+    if (processed) return "skipped";
+
+    // 日付だけのメール（時刻なし）は、その日の終わりまでの購入を対象にする
+    const latest = parsed.dateOnly
+      ? new Date(Date.parse(parsed.transactionDate) + 24 * 60 * 60 * 1000 - 1).toISOString()
+      : parsed.transactionDate;
+
+    // 店名は全角/半角の違いを吸収して比べたいので、金額などで絞った候補をこちらで突き合わせる
+    const { data: candidates, error: findError } = await supabase
+      .from("transactions")
+      .select("id, merchant_raw")
       .eq("amount", parsed.amount)
       .eq("source_issuer", issuer)
       .eq("is_cancelled", false)
-      .lte("transaction_date", parsed.transactionDate)
+      .lte("transaction_date", latest)
       .order("transaction_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(50);
     if (findError) throw findError;
 
+    const match = (candidates ?? []).find((row) => normalizeMerchant(row.merchant_raw) === merchantNormalized);
     if (!match) {
       console.warn(`  ! 取消に対応する取引が見つかりません: ${parsed.merchantRaw} ¥${parsed.amount}`);
       return "skipped";
@@ -59,6 +75,19 @@ async function insertTransaction(
       .update({ is_cancelled: true })
       .eq("id", match.id);
     if (updateError) throw updateError;
+
+    // 処理済みの記録。is_cancelled=true なので集計・一覧には出ない。
+    const { error: recordError } = await supabase.from("transactions").insert({
+      gmail_message_id: gmailMessageId,
+      transaction_date: parsed.transactionDate,
+      merchant_raw: parsed.merchantRaw,
+      merchant_normalized: merchantNormalized,
+      amount: parsed.amount,
+      category_id: null,
+      source_issuer: issuer,
+      is_cancelled: true,
+    });
+    if (recordError && recordError.code !== "23505") throw recordError;
 
     console.log(`  取消により無効化: ${parsed.merchantRaw} ¥${parsed.amount}`);
     return "inserted";

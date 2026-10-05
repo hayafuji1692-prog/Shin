@@ -56,6 +56,7 @@ export const smbcVpassParser: EmailParser = {
         amount: Math.abs(amount),
         cardName,
         isCancellation,
+        dateOnly: hour === undefined,
       });
     }
 

@@ -3,8 +3,10 @@ export type ParsedTransaction = {
   merchantRaw: string;
   amount: number;
   cardName: string;
-  /** オーソリのキャンセル通知の場合true。対応する元の購入取引を削除する必要がある */
+  /** 取消・返品の通知の場合true。対応する元の購入取引を無効化する必要がある */
   isCancellation?: boolean;
+  /** メールに時刻がなく日付だけだった場合true（transactionDateはその日の0:00扱い） */
+  dateOnly?: boolean;
 };
 
 export interface EmailParser {
