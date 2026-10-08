@@ -1,7 +1,9 @@
+import { CategoryPieChart } from "@/components/charts/CategoryPieChart";
 import { TransactionFilters } from "@/components/ui/TransactionFilters";
 import { TransactionList } from "@/components/ui/TransactionList";
 import { currentMonthJst, formatMonthLabel, formatYen, monthsBeforeJst } from "@/lib/date";
-import { getCategories, getTransactions } from "@/lib/queries";
+import { buildCategorySlices } from "@/lib/pie";
+import { getCategories, getMonthlyCategoryTotals, getTransactions } from "@/lib/queries";
 
 export const revalidate = 0;
 
@@ -20,12 +22,15 @@ export default async function TransactionsPage({
   const selectedMonth = params.month && months.includes(params.month) ? params.month : current;
   const selectedCategory = params.category ?? "";
 
-  const [categories, transactions] = await Promise.all([
+  // グラフはカテゴリで絞り込まず、その月の全カテゴリの内訳を常に表示する
+  const [categories, transactions, monthlyTotals] = await Promise.all([
     getCategories(),
     getTransactions({ month: selectedMonth, categoryId: selectedCategory || undefined }),
+    getMonthlyCategoryTotals(selectedMonth),
   ]);
 
   const total = transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+  const pieData = buildCategorySlices(monthlyTotals, categories);
 
   return (
     <>
@@ -35,6 +40,11 @@ export default async function TransactionsPage({
       <div className="card">
         <div className="summary-label">{formatMonthLabel(selectedMonth)}の合計</div>
         <p className="summary-value">{formatYen(total)}</p>
+      </div>
+
+      <div className="card">
+        <h2 className="section-title">{formatMonthLabel(selectedMonth)}のカテゴリ別内訳</h2>
+        <CategoryPieChart data={pieData} month={selectedMonth} />
       </div>
 
       <div className="card">

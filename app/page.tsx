@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CategoryPieChart } from "@/components/charts/CategoryPieChart";
 import { MonthlyTrendChart } from "@/components/charts/MonthlyTrendChart";
 import { currentMonthJst, formatMonthLabel, formatYen } from "@/lib/date";
+import { buildCategorySlices } from "@/lib/pie";
 import {
   getCategories,
   getMonthlyCategoryTotals,
@@ -27,17 +28,9 @@ export default async function DashboardPage() {
     getTransactions({ month: currentMonth, limit: RECENT_TRANSACTIONS_LIMIT }),
   ]);
 
-  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
-
   const totalThisMonth = monthlyTotals.reduce((sum, row) => sum + Number(row.total), 0);
 
-  const pieData = monthlyTotals
-    .map((row) => ({
-      id: row.category_id,
-      name: row.category_id ? categoryNameById.get(row.category_id) ?? "未分類" : "未分類",
-      value: Number(row.total),
-    }))
-    .sort((a, b) => b.value - a.value);
+  const pieData = buildCategorySlices(monthlyTotals, categories);
 
   const trendData = trend.map((point) => ({
     month: point.month,

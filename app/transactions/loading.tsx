@@ -13,6 +13,11 @@ export default function TransactionsLoading() {
       </div>
 
       <div className="card">
+        <div className="skeleton skeleton-label" />
+        <div className="skeleton" style={{ height: 280 }} />
+      </div>
+
+      <div className="card">
         <ul className="transaction-list">
           {Array.from({ length: 5 }).map((_, i) => (
             <li key={i} className="transaction-item">
