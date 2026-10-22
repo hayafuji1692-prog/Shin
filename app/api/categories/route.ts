@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -39,6 +40,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
+  // ダッシュボード等は高速化のため一定時間キャッシュしているので、編集したらすぐ最新が出るよう破棄する
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }
 
@@ -66,6 +69,8 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // ダッシュボード等は高速化のため一定時間キャッシュしているので、編集したらすぐ最新が出るよう破棄する
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }
 
@@ -107,5 +112,7 @@ export async function DELETE(request: Request) {
   const { error: deleteError } = await supabase.from("categories").delete().eq("id", id);
   if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
 
+  // ダッシュボード等は高速化のため一定時間キャッシュしているので、編集したらすぐ最新が出るよう破棄する
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }

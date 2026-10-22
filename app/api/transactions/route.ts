@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -38,6 +39,8 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // ダッシュボード等は高速化のため一定時間キャッシュしているので、編集したらすぐ最新が出るよう破棄する
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }
 
@@ -61,5 +64,7 @@ export async function PATCH(request: Request) {
   const { error } = await supabase.from("transactions").update({ merchant_raw: merchantRaw }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // ダッシュボード等は高速化のため一定時間キャッシュしているので、編集したらすぐ最新が出るよう破棄する
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }

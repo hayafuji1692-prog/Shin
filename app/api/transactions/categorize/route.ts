@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -50,5 +51,7 @@ export async function POST(request: Request) {
         .insert({ keyword: tx.merchant_normalized, category_id: categoryId, priority: 1 })).error;
   if (ruleError) return NextResponse.json({ error: ruleError.message }, { status: 500 });
 
+  // ダッシュボード等は高速化のため一定時間キャッシュしているので、編集したらすぐ最新が出るよう破棄する
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }
