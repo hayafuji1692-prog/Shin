@@ -68,3 +68,26 @@ export async function PATCH(request: Request) {
   revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }
+
+// 取引を一覧・集計から消す。行そのものは削除せず is_cancelled を立てるだけにする。
+// 行を削除すると gmail_message_id による重複防止が効かなくなり、同じメールが次の取り込みで
+// 再登録されて復活してしまうため。
+export async function DELETE(request: Request) {
+  const body = await request.json();
+
+  if (!isAuthorized(body.secret)) {
+    return NextResponse.json({ error: "合言葉が違います" }, { status: 401 });
+  }
+
+  const id = String(body.id ?? "");
+  if (!id) {
+    return NextResponse.json({ error: "idは必須です" }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("transactions").update({ is_cancelled: true }).eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  revalidatePath("/", "layout");
+  return NextResponse.json({ ok: true });
+}
