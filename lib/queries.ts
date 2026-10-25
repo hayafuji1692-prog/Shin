@@ -84,7 +84,7 @@ export async function getTransactions(filter: TransactionFilter): Promise<Transa
     supabase
       .from("transactions")
       .select(
-        "id, gmail_message_id, card_id, transaction_date, merchant_raw, merchant_normalized, amount, category_id, source_issuer, created_at"
+        "id, gmail_message_id, card_id, transaction_date, merchant_raw, merchant_normalized, amount, currency, category_id, source_issuer, created_at"
       )
       .order("transaction_date", { ascending: false }),
     filter

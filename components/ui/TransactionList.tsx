@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatYen } from "@/lib/date";
+import { formatMoney } from "@/lib/date";
 import type { Category, Transaction } from "@/lib/types";
 
 const SECRET_STORAGE_KEY = "kakeibo_admin_secret";
@@ -313,7 +313,7 @@ export function TransactionList({
                 )
               )}
             </div>
-            <span className="transaction-amount">{formatYen(tx.amount)}</span>
+            <span className="transaction-amount">{formatMoney(tx.amount, tx.currency)}</span>
           </li>
         ))}
       </ul>

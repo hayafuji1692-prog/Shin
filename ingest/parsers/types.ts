@@ -2,6 +2,8 @@ export type ParsedTransaction = {
   transactionDate: string; // ISO日時文字列
   merchantRaw: string;
   amount: number;
+  /** 通貨コード（円は "JPY"）。外貨は換算せず元の金額のまま扱う */
+  currency: string;
   cardName: string;
   /** 取消・返品の通知の場合true。対応する元の購入取引を無効化する必要がある */
   isCancellation?: boolean;

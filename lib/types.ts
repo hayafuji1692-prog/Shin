@@ -25,6 +25,7 @@ export type Transaction = {
   merchant_raw: string;
   merchant_normalized: string;
   amount: number;
+  currency: string;
   category_id: string | null;
   source_issuer: string;
   created_at: string;

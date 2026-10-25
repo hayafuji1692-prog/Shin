@@ -1,7 +1,7 @@
 import { CategoryPieChart } from "@/components/charts/CategoryPieChart";
 import { TransactionFilters } from "@/components/ui/TransactionFilters";
 import { TransactionList } from "@/components/ui/TransactionList";
-import { currentMonthJst, formatMonthLabel, formatYen, monthsBeforeJst } from "@/lib/date";
+import { currentMonthJst, formatMoney, formatMonthLabel, formatYen, monthsBeforeJst } from "@/lib/date";
 import { buildCategorySlices } from "@/lib/pie";
 import { getCategories, getMonthlyCategoryTotals, getTransactions } from "@/lib/queries";
 
@@ -29,7 +29,12 @@ export default async function TransactionsPage({
     getMonthlyCategoryTotals(selectedMonth),
   ]);
 
-  const total = transactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+  // 円の合計には円の取引だけを入れ、外貨は換算せず通貨ごとに別に合計する
+  const total = transactions.filter((tx) => tx.currency === "JPY").reduce((sum, tx) => sum + Number(tx.amount), 0);
+  const foreignTotals = new Map<string, number>();
+  for (const tx of transactions) {
+    if (tx.currency !== "JPY") foreignTotals.set(tx.currency, (foreignTotals.get(tx.currency) ?? 0) + Number(tx.amount));
+  }
   const pieData = buildCategorySlices(monthlyTotals, categories);
 
   return (
@@ -40,6 +45,11 @@ export default async function TransactionsPage({
       <div className="card">
         <div className="summary-label">{formatMonthLabel(selectedMonth)}の合計</div>
         <p className="summary-value">{formatYen(total)}</p>
+        {foreignTotals.size > 0 && (
+          <div className="summary-label" style={{ marginTop: 6 }}>
+            外貨（換算なし）: {[...foreignTotals].map(([currency, sum]) => formatMoney(sum, currency)).join(" / ")}
+          </div>
+        )}
       </div>
 
       <div className="card">

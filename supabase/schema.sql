@@ -42,6 +42,7 @@ create table transactions (
   category_id         uuid references categories(id),
   source_issuer       text not null default 'smbc',
   is_cancelled        boolean not null default false, -- 「取消」通知が来た元取引。行はdeleteせず論理的に無効化する
+  currency            text not null default 'JPY',    -- 通貨コード。外貨(AUD等)は換算せず元の通貨・金額のまま記録する
   created_at          timestamptz not null default now()
 );
 create index idx_transactions_date on transactions (transaction_date);
@@ -141,7 +142,7 @@ select
   category_id,
   sum(amount) as total
 from transactions
-where not is_cancelled
+where not is_cancelled and currency = 'JPY' -- 円以外は換算していないので円の集計には含めない
 group by 1, 2;
 
 -- ── Row Level Security ──────────────────────────────────

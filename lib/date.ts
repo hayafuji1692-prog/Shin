@@ -25,3 +25,10 @@ export function formatMonthLabel(monthStr: string): string {
 export function formatYen(amount: number): string {
   return `¥${Math.round(amount).toLocaleString("ja-JP")}`;
 }
+
+/** 円は「¥1,234」、外貨は換算せず「290.00 AUD」のように元の通貨のまま表示する */
+export function formatMoney(amount: number, currency: string = "JPY"): string {
+  if (currency === "JPY") return formatYen(amount);
+  const value = Number(amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${value} ${currency}`;
+}

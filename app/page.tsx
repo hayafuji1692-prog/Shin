@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CategoryPieChart } from "@/components/charts/CategoryPieChart";
 import { MonthlyTrendChart } from "@/components/charts/MonthlyTrendChart";
-import { currentMonthJst, formatMonthLabel, formatYen } from "@/lib/date";
+import { currentMonthJst, formatMoney, formatMonthLabel, formatYen } from "@/lib/date";
 import { buildCategorySlices } from "@/lib/pie";
 import {
   getCategories,
@@ -103,7 +103,7 @@ export default async function DashboardPage() {
                     })}
                   </div>
                 </div>
-                <span className="transaction-amount">{formatYen(tx.amount)}</span>
+                <span className="transaction-amount">{formatMoney(tx.amount, tx.currency)}</span>
               </li>
             ))}
           </ul>

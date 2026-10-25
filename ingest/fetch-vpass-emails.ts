@@ -58,6 +58,7 @@ async function insertTransaction(
       .from("transactions")
       .select("id, merchant_normalized")
       .eq("amount", parsed.amount)
+      .eq("currency", parsed.currency)
       .eq("source_issuer", issuer)
       .eq("is_cancelled", false)
       .lte("transaction_date", latest)
@@ -67,7 +68,7 @@ async function insertTransaction(
 
     const match = (candidates ?? []).find((row) => normalizeMerchant(row.merchant_normalized) === merchantNormalized);
     if (!match) {
-      console.warn(`  ! 取消に対応する取引が見つかりません: ${parsed.merchantRaw} ¥${parsed.amount}`);
+      console.warn(`  ! 取消に対応する取引が見つかりません: ${parsed.merchantRaw} ${parsed.amount} ${parsed.currency}`);
       return "skipped";
     }
 
@@ -84,13 +85,14 @@ async function insertTransaction(
       merchant_raw: parsed.merchantRaw,
       merchant_normalized: merchantNormalized,
       amount: parsed.amount,
+      currency: parsed.currency,
       category_id: null,
       source_issuer: issuer,
       is_cancelled: true,
     });
     if (recordError && recordError.code !== "23505") throw recordError;
 
-    console.log(`  取消により無効化: ${parsed.merchantRaw} ¥${parsed.amount}`);
+    console.log(`  取消により無効化: ${parsed.merchantRaw} ${parsed.amount} ${parsed.currency}`);
     return "inserted";
   }
 
@@ -102,6 +104,7 @@ async function insertTransaction(
     merchant_raw: parsed.merchantRaw,
     merchant_normalized: merchantNormalized,
     amount: parsed.amount,
+    currency: parsed.currency,
     category_id: categoryId,
     source_issuer: issuer,
   });
