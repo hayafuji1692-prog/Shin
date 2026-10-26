@@ -1,4 +1,5 @@
 import { createAdminClient } from "../lib/supabase/admin";
+import { isRuleActiveInMonth } from "./recurring";
 
 // カード決済されない定期支出（銀行振替の積立投資など）を、毎月day_of_month以降に
 // 1回だけtransactionsへ自動登録する。gmail_message_idを
@@ -10,7 +11,7 @@ async function main() {
 
   const { data: rules, error } = await supabase
     .from("recurring_transactions")
-    .select("id, label, amount, category_id, day_of_month");
+    .select("id, label, amount, category_id, day_of_month, start_month, end_month");
   if (error) throw error;
 
   if (!rules || rules.length === 0) {
@@ -29,6 +30,11 @@ async function main() {
   let skipped = 0;
 
   for (const rule of rules) {
+    if (!isRuleActiveInMonth(rule, `${monthStr}-01`)) {
+      skipped++;
+      continue;
+    }
+
     if (day < rule.day_of_month) {
       skipped++;
       continue;

@@ -67,6 +67,8 @@ create table recurring_transactions (
   amount        numeric(12, 2) not null,
   category_id   uuid references categories(id),
   day_of_month  int not null check (day_of_month between 1 and 28),
+  start_month   date,                      -- この月から有効(含む)。例: 2026-12-01。未設定なら制限なし
+  end_month     date,                      -- この月まで有効(含む)。金額を変えるときは旧ルールをここで終わらせる
   created_at    timestamptz not null default now()
 );
 
